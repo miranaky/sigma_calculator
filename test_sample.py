@@ -2,6 +2,7 @@
 샘플 데이터로 StockVolatilityTracker를 테스트합니다.
 """
 
+import argparse
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -31,16 +32,36 @@ def create_sample_data(num_days=252):
 
 
 def main():
+    # 명령줄 인자 파싱
+    parser = argparse.ArgumentParser(
+        description='샘플 데이터로 주식 변동성 추적기를 테스트합니다.',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        '-d', '--days',
+        type=int,
+        default=252,
+        help='샘플 데이터 일 수 (기본값: 252)'
+    )
+    parser.add_argument(
+        '-t', '--ticker',
+        type=str,
+        default='SAMPLE',
+        help='테스트용 티커 이름 (기본값: SAMPLE)'
+    )
+
+    args = parser.parse_args()
+
     print("=" * 60)
     print("📊 주식 변동성 추적기 - 샘플 데이터 테스트")
     print("=" * 60 + "\n")
 
     # StockVolatilityTracker 인스턴스 생성
-    tracker = StockVolatilityTracker('SAMPLE', period_days=365)
+    tracker = StockVolatilityTracker(args.ticker, period_days=365)
 
     # 샘플 데이터 주입
     print("📊 샘플 주식 데이터를 생성하는 중...")
-    tracker.data = create_sample_data(252)
+    tracker.data = create_sample_data(args.days)
     print(f"✅ {len(tracker.data)}일의 데이터를 생성했습니다.")
 
     # 변동률 계산

@@ -3,6 +3,7 @@ Stock Volatility Tracker
 주식의 일일 변동률을 추적하고 1, 2, 3 sigma 값을 계산합니다.
 """
 
+import argparse
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -161,19 +162,49 @@ class StockVolatilityTracker:
 
 def main():
     """메인 함수"""
+    # 명령줄 인자 파싱
+    parser = argparse.ArgumentParser(
+        description='주식 변동성 추적기 - 일일 변동률의 시그마 값을 계산합니다.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+사용 예시:
+  python sigma_calculator.py AAPL          # 애플 주식 분석
+  python sigma_calculator.py 005930.KS     # 삼성전자 분석
+  python sigma_calculator.py TSLA -d 180   # 테슬라 180일 분석
+  python sigma_calculator.py               # 대화형 모드
+        """
+    )
+    parser.add_argument(
+        'ticker',
+        nargs='?',
+        help='주식 티커 심볼 (예: AAPL, TSLA, 005930.KS). 생략하면 대화형 모드로 실행됩니다.'
+    )
+    parser.add_argument(
+        '-d', '--days',
+        type=int,
+        default=365,
+        help='분석 기간 (일 수, 기본값: 365)'
+    )
+
+    args = parser.parse_args()
+
     print("=" * 60)
     print("📊 주식 변동성 추적기 (Stock Volatility Tracker)")
     print("=" * 60 + "\n")
 
-    # 사용자 입력
-    ticker = input("주식 티커를 입력하세요 (예: AAPL, TSLA, 005930.KS): ").strip()
+    # 티커 결정
+    if args.ticker:
+        ticker = args.ticker.strip()
+    else:
+        # 대화형 모드
+        ticker = input("주식 티커를 입력하세요 (예: AAPL, TSLA, 005930.KS): ").strip()
 
     if not ticker:
         print("❌ 티커를 입력해주세요.")
         return
 
     # 분석 실행
-    tracker = StockVolatilityTracker(ticker)
+    tracker = StockVolatilityTracker(ticker, period_days=args.days)
     tracker.analyze()
 
 

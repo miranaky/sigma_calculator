@@ -20,6 +20,24 @@ pip install -r requirements.txt
 
 ### 실제 주식 데이터로 실행
 
+**방법 1: 명령줄 인자로 티커 입력 (권장)**
+
+```bash
+# 기본 사용 (최근 1년 데이터)
+python sigma_calculator.py AAPL
+
+# 기간 지정 (최근 180일 데이터)
+python sigma_calculator.py TSLA -d 180
+
+# 한국 주식
+python sigma_calculator.py 005930.KS
+
+# 도움말 보기
+python sigma_calculator.py --help
+```
+
+**방법 2: 대화형 모드**
+
 ```bash
 python sigma_calculator.py
 ```
@@ -33,7 +51,11 @@ python sigma_calculator.py
 네트워크 문제나 API 접근 제한이 있는 경우, 샘플 데이터로 프로그램을 테스트할 수 있습니다:
 
 ```bash
+# 기본 샘플 데이터 (252일)
 python test_sample.py
+
+# 티커와 기간 지정
+python test_sample.py -t AAPL -d 180
 ```
 
 ## 예시
