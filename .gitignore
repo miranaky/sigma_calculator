@@ -22,6 +22,10 @@ __pycache__/
 yfinance.cache*
 /tmp/yf_cache/
 
+# SQLite database
+*.db
+*.db-journal
+
 # OS
 .DS_Store
 Thumbs.db

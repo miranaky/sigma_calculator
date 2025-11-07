@@ -9,33 +9,56 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+from database import StockDatabase
 
 
 class StockVolatilityTracker:
     """주식 변동성을 추적하고 시그마 값을 계산하는 클래스"""
 
-    def __init__(self, ticker: str, period_days: int = 365):
+    def __init__(self, ticker: str, period_days: int = 365, use_cache: bool = True):
         """
         Args:
             ticker: 주식 티커 (예: 'AAPL', '005930.KS')
             period_days: 분석 기간 (기본값: 365일)
+            use_cache: 캐시 사용 여부 (기본값: True)
         """
         self.ticker = ticker.upper()
         self.period_days = period_days
+        self.use_cache = use_cache
         self.data: Optional[pd.DataFrame] = None
         self.daily_returns: Optional[pd.Series] = None
         self.mean: Optional[float] = None
         self.std: Optional[float] = None
+        self.db = StockDatabase() if use_cache else None
 
-    def fetch_data(self) -> bool:
-        """주식 데이터를 다운로드합니다."""
+    def fetch_data(self, force_refresh: bool = False) -> bool:
+        """
+        주식 데이터를 다운로드하거나 캐시에서 불러옵니다.
+
+        Args:
+            force_refresh: True이면 캐시를 무시하고 새로 다운로드
+
+        Returns:
+            성공 여부
+        """
         try:
             end_date = datetime.now()
             start_date = end_date - timedelta(days=self.period_days)
 
-            print(f"📊 {self.ticker} 데이터를 다운로드하는 중...")
+            # 캐시 확인
+            if self.use_cache and not force_refresh and self.db:
+                if self.db.has_recent_data(self.ticker, days=1):
+                    print(f"💾 {self.ticker} 캐시에서 데이터를 불러오는 중...")
+                    self.data = self.db.load_stock_data(self.ticker, start_date, end_date)
 
-            # yfinance Ticker 객체 사용 (session은 자동 처리)
+                    if self.data is not None and not self.data.empty:
+                        print(f"✅ 캐시에서 {len(self.data)}일의 데이터를 불러왔습니다.")
+                        return True
+                    else:
+                        print(f"⚠️  캐시가 오래되었거나 불완전합니다. 새로 다운로드합니다.")
+
+            # API에서 다운로드
+            print(f"📊 {self.ticker} 데이터를 다운로드하는 중...")
             ticker_obj = yf.Ticker(self.ticker)
             self.data = ticker_obj.history(start=start_date, end=end_date, auto_adjust=True)
 
@@ -45,6 +68,12 @@ class StockVolatilityTracker:
                 return False
 
             print(f"✅ {len(self.data)}일의 데이터를 다운로드했습니다.")
+
+            # 캐시에 저장
+            if self.use_cache and self.db:
+                self.db.save_stock_data(self.ticker, self.data)
+                print(f"💾 데이터를 캐시에 저장했습니다.")
+
             return True
 
         except Exception as e:
@@ -159,9 +188,17 @@ class StockVolatilityTracker:
         print("   - 3σ: 내일 변동률이 이 범위를 벗어날 확률 약 0.3%")
         print("="*60 + "\n")
 
-    def analyze(self) -> bool:
-        """전체 분석 프로세스를 실행합니다."""
-        if not self.fetch_data():
+    def analyze(self, force_refresh: bool = False) -> bool:
+        """
+        전체 분석 프로세스를 실행합니다.
+
+        Args:
+            force_refresh: True이면 캐시를 무시하고 새로 분석
+
+        Returns:
+            성공 여부
+        """
+        if not self.fetch_data(force_refresh=force_refresh):
             return False
 
         if not self.calculate_daily_returns():
@@ -169,6 +206,18 @@ class StockVolatilityTracker:
 
         if not self.calculate_sigma():
             return False
+
+        # 분석 결과를 캐시에 저장
+        if self.use_cache and self.db and self.mean is not None and self.std is not None:
+            last_price = self.data['Close'].iloc[-1]
+            self.db.save_analysis(
+                self.ticker,
+                self.period_days,
+                self.mean,
+                self.std,
+                last_price,
+                len(self.daily_returns)
+            )
 
         self.print_report()
         return True
@@ -182,10 +231,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 사용 예시:
-  python sigma_calculator.py AAPL          # 애플 주식 분석
-  python sigma_calculator.py 005930.KS     # 삼성전자 분석
-  python sigma_calculator.py TSLA -d 180   # 테슬라 180일 분석
-  python sigma_calculator.py               # 대화형 모드
+  python sigma_calculator.py AAPL              # 애플 주식 분석 (캐시 사용)
+  python sigma_calculator.py 005930.KS         # 삼성전자 분석
+  python sigma_calculator.py TSLA -d 180       # 테슬라 180일 분석
+  python sigma_calculator.py AAPL --refresh    # 캐시 무시하고 새로 분석
+  python sigma_calculator.py --stats           # 캐시 통계 보기
+  python sigma_calculator.py                   # 대화형 모드
         """
     )
     parser.add_argument(
@@ -199,12 +250,38 @@ def main():
         default=365,
         help='분석 기간 (일 수, 기본값: 365)'
     )
+    parser.add_argument(
+        '--refresh',
+        action='store_true',
+        help='캐시를 무시하고 새로 데이터를 다운로드합니다.'
+    )
+    parser.add_argument(
+        '--no-cache',
+        action='store_true',
+        help='캐시를 사용하지 않습니다.'
+    )
+    parser.add_argument(
+        '--stats',
+        action='store_true',
+        help='캐시 통계를 표시하고 종료합니다.'
+    )
 
     args = parser.parse_args()
 
     print("=" * 60)
     print("📊 주식 변동성 추적기 (Stock Volatility Tracker)")
     print("=" * 60 + "\n")
+
+    # 캐시 통계 표시
+    if args.stats:
+        db = StockDatabase()
+        stats = db.get_database_stats()
+        print("📊 캐시 통계:")
+        print(f"   저장된 티커 수: {stats['ticker_count']}")
+        print(f"   총 데이터 레코드: {stats['data_count']:,}")
+        print(f"   캐시된 분석 결과: {stats['cache_count']}")
+        print(f"   데이터베이스 크기: {stats['db_size_mb']:.2f} MB")
+        return
 
     # 티커 결정
     if args.ticker:
@@ -218,8 +295,9 @@ def main():
         return
 
     # 분석 실행
-    tracker = StockVolatilityTracker(ticker, period_days=args.days)
-    tracker.analyze()
+    use_cache = not args.no_cache
+    tracker = StockVolatilityTracker(ticker, period_days=args.days, use_cache=use_cache)
+    tracker.analyze(force_refresh=args.refresh)
 
 
 if __name__ == "__main__":

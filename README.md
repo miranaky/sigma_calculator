@@ -9,6 +9,9 @@
 - 변동률의 평균과 표준편차 계산
 - 1σ, 2σ, 3σ 구간 계산 및 출력
 - 내일 몇 %가 변하면 각 시그마를 넘는지 예측
+- **SQLite 캐싱**: 다운로드한 데이터와 분석 결과를 로컬에 저장하여 빠른 재분석 가능
+- 명령줄 인자로 티커 직접 입력 지원
+- 캐시 새로고침 및 통계 보기 기능
 
 ## 설치 방법
 
@@ -23,7 +26,7 @@ pip install -r requirements.txt
 **방법 1: 명령줄 인자로 티커 입력 (권장)**
 
 ```bash
-# 기본 사용 (최근 1년 데이터)
+# 기본 사용 (최근 1년 데이터, 캐시 자동 사용)
 python sigma_calculator.py AAPL
 
 # 기간 지정 (최근 180일 데이터)
@@ -31,6 +34,15 @@ python sigma_calculator.py TSLA -d 180
 
 # 한국 주식
 python sigma_calculator.py 005930.KS
+
+# 캐시 무시하고 새로 다운로드
+python sigma_calculator.py AAPL --refresh
+
+# 캐시 사용하지 않기
+python sigma_calculator.py AAPL --no-cache
+
+# 캐시 통계 보기
+python sigma_calculator.py --stats
 
 # 도움말 보기
 python sigma_calculator.py --help
@@ -45,6 +57,14 @@ python sigma_calculator.py
 실행 후 주식 티커를 입력하세요:
 - 미국 주식: `AAPL`, `TSLA`, `GOOGL` 등
 - 한국 주식: `005930.KS` (삼성전자), `000660.KS` (SK하이닉스) 등
+
+### 캐시 기능
+
+프로그램은 SQLite 데이터베이스에 데이터를 자동으로 캐싱합니다:
+- **첫 실행**: 데이터를 다운로드하고 캐시에 저장 (약간 느림)
+- **두 번째 실행**: 캐시에서 즉시 불러옴 (매우 빠름)
+- **캐시 갱신**: `--refresh` 옵션으로 최신 데이터 다운로드
+- **캐시 통계**: `--stats` 옵션으로 저장된 데이터 확인
 
 ### 샘플 데이터로 테스트
 
