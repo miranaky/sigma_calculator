@@ -115,6 +115,9 @@ class StockVolatilityTracker:
 
         sigma_levels = self.get_sigma_levels()
 
+        # 마지막 종가 가져오기
+        last_price = self.data['Close'].iloc[-1]
+
         print("\n" + "="*60)
         print(f"📈 {self.ticker} 주식 변동성 분석 리포트")
         print("="*60)
@@ -122,21 +125,32 @@ class StockVolatilityTracker:
         print(f"📊 분석 데이터: {len(self.daily_returns)}일의 일일 변동률")
 
         print(f"\n📉 기본 통계:")
+        print(f"   마지막 종가: ${last_price:.2f}")
         print(f"   평균 일일 변동률: {sigma_levels['mean']:+.4f}%")
         print(f"   표준편차 (1σ): {sigma_levels['std']:.4f}%")
 
         print(f"\n🎯 내일 예상 변동 범위:")
+
+        # 1 시그마
+        price_1sigma_up = last_price * (1 + sigma_levels['1_sigma_up'] / 100)
+        price_1sigma_down = last_price * (1 + sigma_levels['1_sigma_down'] / 100)
         print(f"\n   1 시그마 (68.3% 확률):")
-        print(f"      상승: +{sigma_levels['1_sigma_up']:.2f}% 이상")
-        print(f"      하락: {sigma_levels['1_sigma_down']:.2f}% 이하")
+        print(f"      상승: +{sigma_levels['1_sigma_up']:.2f}% 이상 → ${price_1sigma_up:.2f}")
+        print(f"      하락: {sigma_levels['1_sigma_down']:.2f}% 이하 → ${price_1sigma_down:.2f}")
 
+        # 2 시그마
+        price_2sigma_up = last_price * (1 + sigma_levels['2_sigma_up'] / 100)
+        price_2sigma_down = last_price * (1 + sigma_levels['2_sigma_down'] / 100)
         print(f"\n   2 시그마 (95.4% 확률):")
-        print(f"      상승: +{sigma_levels['2_sigma_up']:.2f}% 이상")
-        print(f"      하락: {sigma_levels['2_sigma_down']:.2f}% 이하")
+        print(f"      상승: +{sigma_levels['2_sigma_up']:.2f}% 이상 → ${price_2sigma_up:.2f}")
+        print(f"      하락: {sigma_levels['2_sigma_down']:.2f}% 이하 → ${price_2sigma_down:.2f}")
 
+        # 3 시그마
+        price_3sigma_up = last_price * (1 + sigma_levels['3_sigma_up'] / 100)
+        price_3sigma_down = last_price * (1 + sigma_levels['3_sigma_down'] / 100)
         print(f"\n   3 시그마 (99.7% 확률):")
-        print(f"      상승: +{sigma_levels['3_sigma_up']:.2f}% 이상")
-        print(f"      하락: {sigma_levels['3_sigma_down']:.2f}% 이하")
+        print(f"      상승: +{sigma_levels['3_sigma_up']:.2f}% 이상 → ${price_3sigma_up:.2f}")
+        print(f"      하락: {sigma_levels['3_sigma_down']:.2f}% 이하 → ${price_3sigma_down:.2f}")
 
         print("\n" + "="*60)
         print("\n💡 해석:")
