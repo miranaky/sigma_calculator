@@ -223,6 +223,37 @@ class StockVolatilityTracker:
         return True
 
 
+def load_tickers_from_file(file_path: str = "tickers.txt") -> list:
+    """
+    파일에서 티커 목록을 읽어옵니다.
+
+    Args:
+        file_path: 티커 목록 파일 경로
+
+    Returns:
+        티커 리스트
+    """
+    import os
+
+    if not os.path.exists(file_path):
+        return []
+
+    tickers = []
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                # 빈 줄이나 주석 무시
+                if not line or line.startswith('#'):
+                    continue
+                tickers.append(line)
+    except Exception as e:
+        print(f"⚠️  티커 파일 읽기 오류: {e}")
+        return []
+
+    return tickers
+
+
 def main():
     """메인 함수"""
     # 명령줄 인자 파싱
@@ -231,18 +262,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 사용 예시:
+  python sigma_calculator.py                   # tickers.txt 파일의 모든 티커 분석
   python sigma_calculator.py AAPL              # 애플 주식 분석 (캐시 사용)
   python sigma_calculator.py 005930.KS         # 삼성전자 분석
   python sigma_calculator.py TSLA -d 180       # 테슬라 180일 분석
   python sigma_calculator.py AAPL --refresh    # 캐시 무시하고 새로 분석
+  python sigma_calculator.py --file my.txt     # 커스텀 파일의 티커 분석
   python sigma_calculator.py --stats           # 캐시 통계 보기
-  python sigma_calculator.py                   # 대화형 모드
         """
     )
     parser.add_argument(
         'ticker',
         nargs='?',
-        help='주식 티커 심볼 (예: AAPL, TSLA, 005930.KS). 생략하면 대화형 모드로 실행됩니다.'
+        help='주식 티커 심볼 (예: AAPL, TSLA, 005930.KS). 생략하면 tickers.txt 파일의 모든 티커를 분석합니다.'
     )
     parser.add_argument(
         '-d', '--days',
@@ -259,6 +291,12 @@ def main():
         '--no-cache',
         action='store_true',
         help='캐시를 사용하지 않습니다.'
+    )
+    parser.add_argument(
+        '--file',
+        type=str,
+        default='tickers.txt',
+        help='티커 목록 파일 경로 (기본값: tickers.txt)'
     )
     parser.add_argument(
         '--stats',
@@ -284,20 +322,64 @@ def main():
         return
 
     # 티커 결정
+    tickers = []
     if args.ticker:
-        ticker = args.ticker.strip()
+        # 명령줄에서 티커 지정
+        tickers = [args.ticker.strip()]
     else:
-        # 대화형 모드
-        ticker = input("주식 티커를 입력하세요 (예: AAPL, TSLA, 005930.KS): ").strip()
+        # 파일에서 티커 목록 읽기
+        tickers = load_tickers_from_file(args.file)
 
-    if not ticker:
-        print("❌ 티커를 입력해주세요.")
-        return
+        if not tickers:
+            print(f"⚠️  '{args.file}' 파일을 찾을 수 없거나 티커가 없습니다.")
+            print(f"   티커를 직접 입력하거나, {args.file} 파일에 티커를 추가하세요.\n")
 
-    # 분석 실행
+            # 대화형 모드로 전환
+            ticker = input("주식 티커를 입력하세요 (예: AAPL, TSLA, 005930.KS): ").strip()
+            if not ticker:
+                print("❌ 티커를 입력해주세요.")
+                return
+            tickers = [ticker]
+        else:
+            print(f"📋 {args.file}에서 {len(tickers)}개의 티커를 찾았습니다.")
+            print(f"   티커 목록: {', '.join(tickers)}\n")
+
+    # 분석 설정
     use_cache = not args.no_cache
-    tracker = StockVolatilityTracker(ticker, period_days=args.days, use_cache=use_cache)
-    tracker.analyze(force_refresh=args.refresh)
+
+    # 여러 티커 분석
+    success_count = 0
+    fail_count = 0
+
+    for i, ticker in enumerate(tickers, 1):
+        if len(tickers) > 1:
+            print(f"\n{'='*60}")
+            print(f"[{i}/{len(tickers)}] {ticker} 분석 중...")
+            print(f"{'='*60}")
+
+        try:
+            tracker = StockVolatilityTracker(ticker, period_days=args.days, use_cache=use_cache)
+            if tracker.analyze(force_refresh=args.refresh):
+                success_count += 1
+            else:
+                fail_count += 1
+        except Exception as e:
+            print(f"❌ {ticker} 분석 중 오류 발생: {e}")
+            fail_count += 1
+
+        # 여러 티커일 때 구분선
+        if len(tickers) > 1 and i < len(tickers):
+            print("\n" + "─" * 60 + "\n")
+
+    # 최종 요약
+    if len(tickers) > 1:
+        print("\n" + "=" * 60)
+        print("📊 분석 완료 요약")
+        print("=" * 60)
+        print(f"   총 티커 수: {len(tickers)}")
+        print(f"   성공: {success_count}")
+        print(f"   실패: {fail_count}")
+        print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":
